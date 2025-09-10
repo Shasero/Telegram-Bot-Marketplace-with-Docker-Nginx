@@ -1,5 +1,3 @@
----
-
 # 🤖 Telegram Bot Marketplace with Docker & Nginx
 
 **Русская версия ниже | Russian version below**
