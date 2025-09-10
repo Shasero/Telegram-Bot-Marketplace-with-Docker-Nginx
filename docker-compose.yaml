@@ -1,0 +1,79 @@
+services:
+  bot:
+    build: .
+    restart: always
+    environment:
+      - TOKEN=${TOKEN}
+      - NGINX_HOST=${NGINX_HOST}
+    volumes:
+      - ./data:/bot/data
+      - ./.env:/bot/.env
+    expose:
+      - "0000"
+    networks:
+      - bot_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:0000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  nginx:
+    image: nginx:1.23-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
+    volumes:
+      # - ./nginx/first_start:/etc/nginx/conf.d:rw
+      - ./nginx/templates:/etc/nginx/conf.d:rw
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:rw
+    networks:
+      - bot_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      bot:
+        condition: service_healthy
+
+  certbot:
+    image: certbot/certbot:v2.5.0
+    command: [
+      "certonly",
+      "--webroot",
+      "--webroot-path=/var/www/certbot",
+      "--email=your_email",
+      "--agree-tos",
+      "--no-eff-email",
+      "-d", "your_domain.com",
+      "--debug"  
+    ]
+    volumes:
+      - ./certbot/www:/var/www/certbot:rw
+      - ./certbot/conf:/etc/letsencrypt:rw
+    depends_on:
+        nginx:
+          condition: service_healthy
+    networks:
+      - bot_network
+
+  certbot-renew:
+    image: certbot/certbot
+    command: renew --webroot -w /var/www/certbot --quiet
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    depends_on:
+      - nginx
+    networks:
+      - bot_network
+
+networks:
+  bot_network:
+    driver: bridge
