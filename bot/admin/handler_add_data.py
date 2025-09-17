@@ -1,10 +1,13 @@
+import logging
+import sys
+import sqlite3
+import aiofiles
+import os
 from aiogram import F, Router, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
-import logging
-import sys
-import sqlite3
+from aiogram.types import FSInputFile
 
 import database.requests as rq
 
@@ -26,13 +29,16 @@ MAX_PHOTO_SIZE_MB = 5
 MAX_FILE_SIZE_MB = 20
 MIN_PRICE = 0
 MAX_PRICE = 100000
+MAX_NAME_LENGTH = 15
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FILES_DIR = os.path.join(BASE_DIR, "..", "saved_files")
+os.makedirs(FILES_DIR, exist_ok=True)
 
 class AddDataStates(StatesGroup):
     name = State()
     photo = State()
     description = State()
     file = State() 
-    price_card = State()
     price_star = State()
 
 class DataType:
@@ -79,14 +85,34 @@ class DataHandler:
         """Обработка названия"""
         try:
             logger.info(f"[PROCESS] Обработка названия для {self.data_type} от пользователя {message.from_user.id}")
-            
+            name = message.text.strip()
+
+            if not message.text or not message.text.strip():
+                warn_msg = "❌ Название не может быть пустым."
+                logger.warning(warn_msg)
+                await message.answer(warn_msg)
+                return
+
             if not message.text or len(message.text.strip()) < 3:
                 warn_msg = "❌ Название должно содержать минимум 3 символа."
                 logger.warning(warn_msg)
                 await message.answer(warn_msg)
                 return
             
-            name = message.text.strip()
+            if len(name) > MAX_NAME_LENGTH:
+                warn_msg = f"❌ Название слишком длинное. Максимум {MAX_NAME_LENGTH} символов."
+                logger.warning(warn_msg)
+                await message.answer(warn_msg)
+                return
+            
+            forbidden_chars = ['<', '>', '&', '"', "'", '`', '\\', '/', '|']
+            found_chars = [char for char in forbidden_chars if char in name]
+            if found_chars:
+                warn_msg = f"❌ Название содержит запрещенные символы: {', '.join(found_chars)}"
+                logger.warning(warn_msg)
+                await message.answer(warn_msg)
+                return
+            
             logger.info(f"[CHECK] Проверка уникальности названия: {name}")
             
             try:
@@ -216,7 +242,7 @@ class DataHandler:
             "3. Выберите нужный файл"
         )
 
-    async def process_file(self, message: Message, state: FSMContext):
+    async def process_file(self, message: Message, state: FSMContext, bot: Bot):
         """Обработка файла"""
         try:
             logger.info(f"[PROCESS] Обработка файла для {self.data_type} от пользователя {message.from_user.id}")
@@ -268,17 +294,28 @@ class DataHandler:
                 )
                 return
             
-            file_info = {
+            # Скачиваем файл
+            file_info = await bot.get_file(document.file_id)
+            downloaded_file = await bot.download_file(file_info.file_path)
+
+            # Сохраняем файл локально
+            local_file_path = os.path.join(FILES_DIR, document.file_name)
+            async with aiofiles.open(local_file_path, 'wb') as new_file:
+                await new_file.write(downloaded_file.read())
+
+            
+            file_data = {
                 'file_id': document.file_id,
                 'file_name': document.file_name,
                 'file_size': document.file_size,
                 'mime_type': document.mime_type,
+                'local_path': local_file_path,
                 'date': message.date.isoformat()
             }
             
-            logger.info(f"[SAVE] Сохранение информации о файле: {file_info}")
-            await state.update_data(file=file_info)
-            await state.set_state(self.states.price_card)
+            logger.info(f"[SAVE] Сохранение информации о файле: {file_data}")
+            await state.update_data(file=file_data)
+            await state.set_state(self.states.price_star)
             
             file_size_mb = document.file_size / (1024 * 1024)
             next_msg = (
@@ -286,9 +323,9 @@ class DataHandler:
                 f"📄 Название: {document.file_name}\n"
                 f"📦 Тип: {document.mime_type}\n"
                 f"📏 Размер: {file_size_mb:.1f}MB\n\n"
-                "💳 Теперь укажите цену в рублях:"
+                "⭐ Теперь укажите цену в звёздах:"
             )
-            logger.info(f"[NEXT] Переход к состоянию 'price_card'. Отправка сообщения: {next_msg}")
+            logger.info(f"[NEXT] Переход к состоянию 'price_star'. Отправка сообщения: {next_msg}")
             await message.answer(next_msg)
             
         except Exception as e:
@@ -302,46 +339,6 @@ class DataHandler:
                 "3. Попробуйте отправить другой файл\n\n"
                 f"Техническая информация: {type(e).__name__}"
             )
-
-    async def process_price_card(self, message: Message, state: FSMContext):
-        """Обработка цены в рублях"""
-        try:
-            logger.info(f"[PROCESS] Обработка цены в рублях для {self.data_type} от пользователя {message.from_user.id}")
-            
-            price = message.text.strip()
-            logger.info(f"[PRICE] Получена цена: {price}")
-            
-            if not price.isdigit():
-                warn_msg = "Пользователь ввел некорректную цену (не цифры)"
-                logger.warning(warn_msg)
-                await message.answer("❌ Пожалуйста, укажите корректную цену в рублях (только цифры).")
-                return
-                
-            price = int(price)
-            if price < self.min_price or price > self.max_price:
-                warn_msg = f"Цена {price} вне допустимого диапазона ({self.min_price}-{self.max_price})"
-                logger.warning(warn_msg)
-                await message.answer(
-                    f"❌ Цена должна быть от {self.min_price} до {self.max_price} рублей.\n"
-                    "Пожалуйста, введите корректное значение."
-                )
-                return
-                
-            await state.update_data(price_card=str(price))
-            await state.set_state(self.states.price_star)
-            
-            text_map = {
-                DataType.GAID: f"✅ Цена в рублях: {price}₽\n⭐ Теперь укажите цену гайда в звездах:",
-                DataType.KURS: f"✅ Цена в рублях: {price}₽\n⭐ Теперь укажите цену курса в звездах:"
-            }
-            next_msg = text_map[self.data_type]
-            logger.info(f"[NEXT] Переход к состоянию 'price_star'. Отправка сообщения: {next_msg}")
-            await message.answer(next_msg)
-            
-        except Exception as e:
-            error_msg = f"[ERROR] Ошибка в process_price_card для {self.data_type}: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            await message.answer("⚠️ Ошибка при обработке цены. Попробуйте ещё раз.")
 
     async def process_price_star(self, message: Message, state: FSMContext):
         """Обработка цены в звездах и сохранение данных"""
@@ -373,8 +370,7 @@ class DataHandler:
                 'name': "Название",
                 'photo': "Фото",
                 'description': "Описание",
-                'file': "Файл",
-                'price_card': "Цена в рублях"
+                'file': "Файл"
             }
             
             missing_fields = []
@@ -401,14 +397,13 @@ class DataHandler:
                         photo_gaid=data['photo'],
                         description_gaid=data['description'],
                         fail_gaid=file_id,
-                        price_card_gaid=data['price_card'],
+                        local_path_gaid=file_info['local_path'],
                         price_star_gaid=str(stars)
                     )
                     success_msg = (
                         "✅ Гайд успешно добавлен!\n\n"
                         f"📌 Название: {data['name']}\n"
                         f"📝 Описание: {data['description'][:50]}...\n"
-                        f"💳 Цена: {data['price_card']}₽\n"
                         f"⭐ Звёзды: {stars}\n\n"
                         "Спасибо за добавление гайда!"
                     )
@@ -418,15 +413,14 @@ class DataHandler:
                         name_fail_kurs=data['name'],
                         photo_kurs=data['photo'],
                         description_kurs=data['description'],
-                        fail_kurs=file_id,  
-                        price_card_kurs=data['price_card'],
+                        fail_kurs=file_id,
+                        local_path_kurs=file_info['local_path'],
                         price_star_kurs=str(stars)
                     )
                     success_msg = (
                         "✅ Курс успешно добавлен!\n\n"
                         f"📌 Название: {data['name']}\n"
                         f"📝 Описание: {data['description'][:50]}...\n"
-                        f"💳 Цена: {data['price_card']}₽\n"
                         f"⭐ Звёзды: {stars}\n\n"
                         "Спасибо за добавление курса!"
                     )
@@ -475,7 +469,7 @@ async def add_kurs(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
 
 @router.message(AddDataStates.name, F.text)
-async def add_gaid_name(message: Message, state: FSMContext):
+async def add_data_name(message: Message, state: FSMContext):
     data = await state.get_data()
     logger.info(f"[PROCESS] Обработка названия данных. Текущие данные: {data}")
     if data.get('data_type') == DataType.GAID:
@@ -484,7 +478,7 @@ async def add_gaid_name(message: Message, state: FSMContext):
         await kurs_handler.process_name(message, state)
 
 @router.message(AddDataStates.photo, F.photo)
-async def add_gaid_photo(message: Message, state: FSMContext):
+async def add_data_photo(message: Message, state: FSMContext):
     data = await state.get_data()
     logger.info(f"[PROCESS] Обработка фото данных. Текущие данные: {data}")
     if data.get('data_type') == DataType.GAID:
@@ -493,7 +487,7 @@ async def add_gaid_photo(message: Message, state: FSMContext):
         await kurs_handler.process_photo(message, state)
 
 @router.message(AddDataStates.description, F.text)
-async def add_gaid_description(message: Message, state: FSMContext):
+async def add_data_description(message: Message, state: FSMContext):
     data = await state.get_data()
     logger.info(f"[PROCESS] Обработка описания данных. Текущие данные: {data}")
     if data.get('data_type') == DataType.GAID:
@@ -502,25 +496,16 @@ async def add_gaid_description(message: Message, state: FSMContext):
         await kurs_handler.process_description(message, state)
 
 @router.message(AddDataStates.file, F.document)
-async def add_gaid_file(message: Message, state: FSMContext):
+async def add_data_file(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     logger.info(f"[PROCESS] Обработка файла данных. Текущие данные: {data}")
     if data.get('data_type') == DataType.GAID:
-        await gaid_handler.process_file(message, state)
+        await gaid_handler.process_file(message, state, bot)
     elif data.get('data_type') == DataType.KURS:
-        await kurs_handler.process_file(message, state)
-
-@router.message(AddDataStates.price_card, F.text)
-async def add_gaid_price_card(message: Message, state: FSMContext):
-    data = await state.get_data()
-    logger.info(f"[PROCESS] Обработка цены в рублях для данных. Текущие данные: {data}")
-    if data.get('data_type') == DataType.GAID:
-        await gaid_handler.process_price_card(message, state)
-    elif data.get('data_type') == DataType.KURS:
-        await kurs_handler.process_price_card(message, state)
+        await kurs_handler.process_file(message, state, bot)
 
 @router.message(AddDataStates.price_star, F.text)
-async def add_gaid_price_star(message: Message, state: FSMContext):
+async def add_data_price_star(message: Message, state: FSMContext):
     data = await state.get_data()
     logger.info(f"[PROCESS] Обработка цены в звездах для данных. Текущие данные: {data}")
     if data.get('data_type') == DataType.GAID:

@@ -37,15 +37,15 @@ async def set_active(tg_id, active):
         await session.commit()
 
 
-async def add_gaid(name_fail_gaid, photo_gaid, description_gaid, fail_gaid, price_card_gaid, price_star_gaid):
+async def add_gaid(name_fail_gaid, photo_gaid, description_gaid, fail_gaid, local_path_gaid, price_star_gaid):
     async with async_session() as session:
-        session.add(Gaid(name_fail_gaid=name_fail_gaid, photo_gaid=photo_gaid, description_gaid=description_gaid, fail_gaid=fail_gaid, price_card_gaid=price_card_gaid, price_star_gaid=price_star_gaid))
+        session.add(Gaid(name_fail_gaid=name_fail_gaid, photo_gaid=photo_gaid, description_gaid=description_gaid, fail_gaid=fail_gaid, local_path_gaid=local_path_gaid, price_star_gaid=price_star_gaid))
         await session.commit()
 
     
-async def add_kurs(name_fail_kurs, photo_kurs, description_kurs, fail_kurs, price_card_kurs, price_star_kurs):
+async def add_kurs(name_fail_kurs, photo_kurs, description_kurs, fail_kurs, local_path_kurs, price_star_kurs):
     async with async_session() as session:
-        session.add(Kurs(name_fail_kurs=name_fail_kurs, photo_kurs=photo_kurs, description_kurs=description_kurs, fail_kurs=fail_kurs, price_card_kurs=price_card_kurs, price_star_kurs=price_star_kurs))
+        session.add(Kurs(name_fail_kurs=name_fail_kurs, photo_kurs=photo_kurs, description_kurs=description_kurs, fail_kurs=fail_kurs, local_path_kurs=local_path_kurs, price_star_kurs=price_star_kurs))
         await session.commit()
 
 
@@ -95,3 +95,26 @@ async def drop_table_kurs(selection_id):
         for kurs in namekurs:
             await session.delete(kurs)
         await session.commit()
+
+
+async def get_all_gaids():
+    async with async_session() as session:
+        return await session.scalars(select(Gaid))
+
+async def get_all_kurs():
+    async with async_session() as session:
+        return await session.scalars(select(Kurs))
+
+async def update_gaid_file_id(gaid_name, new_file_id):
+    async with async_session() as session:
+        gaid = await session.scalar(select(Gaid).where(Gaid.name_fail_gaid == gaid_name))
+        if gaid:
+            gaid.fail_gaid = new_file_id
+            await session.commit()
+
+async def update_kurs_file_id(kurs_name, new_file_id):
+    async with async_session() as session:
+        kurs = await session.scalar(select(Kurs).where(Kurs.name_fail_kurs == kurs_name))
+        if kurs:
+            kurs.fail_kurs = new_file_id
+            await session.commit()

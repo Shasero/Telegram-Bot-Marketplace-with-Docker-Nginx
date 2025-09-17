@@ -18,52 +18,13 @@ list = InlineKeyboardMarkup(inline_keyboard=[
 
 
 payment_keyboard_gaid = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Оплата ⭐️', callback_data='stars_gaid', pay=True)],
-    [InlineKeyboardButton(text='Оплата 💳', callback_data='cards_gaid', pay=True)]
+    [InlineKeyboardButton(text='Оплата ⭐️', callback_data='stars_gaid', pay=True)]
 ], resize_keyboard=True)
 
 
 payment_keyboard_kurs = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Оплата ⭐️', callback_data='stars_kurs', pay=True)],
-    [InlineKeyboardButton(text='Оплата 💳', callback_data='cards_kurs', pay=True)]
+    [InlineKeyboardButton(text='Оплата ⭐️', callback_data='stars_kurs', pay=True)]
 ], resize_keyboard=True)
-
-
-succsefull_keyboard_gaid = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Подтверждаю ✅', callback_data='true_gaid')],
-    [InlineKeyboardButton(text='Не подтверждаю ❌', callback_data='false_gaid')]
-], resize_keyboard=True)
-
-
-confirmation_gaid = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Да ✅', callback_data='ok_gaid')],
-    [InlineKeyboardButton(text='Нет ❌', callback_data='no_gaid')]
-], resize_keyboard=True)
-
-
-confirmation_false_gaid = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Да ✅', callback_data='yes_false_gaid')],
-    [InlineKeyboardButton(text='Нет ❌', callback_data='no_false_gaid')]
-], resize_keyboard=True)
-
-
-succsefull_keyboard_kurs = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Подтверждаю ✅', callback_data='true_kurs')],
-    [InlineKeyboardButton(text='Не подтверждаю ❌', callback_data='false_kurs')]
-], resize_keyboard=True)
-
-
-confirmation_kurs = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Да ✅', callback_data='ok_kurs')],
-    [InlineKeyboardButton(text='Нет ❌', callback_data='no_kurs')]
-], resize_keyboard=True)
-
-
-confirmation_false_kurs = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Да ✅', callback_data='yes_false_kurs')],
-    [InlineKeyboardButton(text='Нет ❌', callback_data='no_false_kurs')]
-], resize_keyboard=True)
-
 
 
 async def selectkeyboardgaid():

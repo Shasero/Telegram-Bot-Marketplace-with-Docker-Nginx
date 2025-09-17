@@ -2,7 +2,7 @@ from sqlalchemy import BigInteger, String, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine
 
-engine = create_async_engine(url='sqlite+aiosqlite:///data/dbbot.sqlite3')
+engine = create_async_engine(url='sqlite+aiosqlite:///data/dbvoronkaasyabot.sqlite3')
 
 async_session = async_sessionmaker(engine)
 
@@ -29,7 +29,7 @@ class Gaid(Base):
     photo_gaid = mapped_column(String(300))
     description_gaid = mapped_column(String(300))
     fail_gaid = mapped_column(String(300))
-    price_card_gaid = mapped_column(Integer())
+    local_path_gaid = mapped_column(String(500))
     price_star_gaid = mapped_column(Integer())
 
 
@@ -41,7 +41,7 @@ class Kurs(Base):
     photo_kurs = mapped_column(String(300))
     description_kurs = mapped_column(String(300))
     fail_kurs = mapped_column(String(300))
-    price_card_kurs = mapped_column(Integer())
+    local_path_kurs = mapped_column(String(500))
     price_star_kurs = mapped_column(Integer())
 
 
