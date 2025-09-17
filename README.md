@@ -1,5 +1,3 @@
----
-
 # 🤖 Telegram_Bot_Marketplac_with_Docker_Nginx | Маркетплейс гайдов и курсов в Telegram
 
 [![Docker](https://img.shields.io/badge/Docker-✓-blue?style=flat&logo=docker)](https://www.docker.com/)
