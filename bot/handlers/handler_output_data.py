@@ -246,14 +246,6 @@ class OutputDataHandler:
 
         await state.clear()    
         logger.info(f"Состояние очищено после успешной оплаты для пользователя {message.from_user.id}")
-
-        try:
-            await bot.refund_star_payment(
-                message.from_user.id,
-                message.successful_payment.telegram_payment_charge_id
-            )
-        except Exception as e:
-            logger.error(f"Ошибка при возврате оплаты: {e}")
     
 
 # Создаем экземпляры обработчиков
